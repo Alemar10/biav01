@@ -3,7 +3,6 @@ version: 0.2
 env:
   variables:
     AWS_DEFAULT_REGION: us-east-1
-    # use um nome FIXO de repositório no ECR; evite $ImageName dinâmico
     ECR_REPO: 801333664660.dkr.ecr.us-east-1.amazonaws.com/simple-docker-service-0ed19a32f335
     IMAGE_TAG: latest
 
@@ -11,23 +10,16 @@ phases:
   pre_build:
     commands:
       - echo "Login no ECR..."
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 801333664660.dkr.ecr.us-east-1.amazonaws.com
-      - SHORT_SHA=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c1-7 || true)
-
+      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $ECR_REPO
   build:
     commands:
       - echo "Build da imagem..."
       - docker build -t bia:latest -f ./Dockerfile .
-      - docker tag bia:latest $ECR_REPO:latest
-      - if [ -n "$SHORT_SHA" ]; then docker tag bia:latest $ECR_REPO:$SHORT_SHA; fi
-
+      - docker tag bia:latest $ECR_REPO:$IMAGE_TAG
   post_build:
     commands:
       - echo "Push pro ECR..."
-      - docker push $ECR_REPO:latest
-      - if [ -n "$SHORT_SHA" ]; then docker push $ECR_REPO:$SHORT_SHA; fi
-
-      # >>> CRÍTICO PARA O EB: gerar Dockerrun <<<
+      - docker push $ECR_REPO:$IMAGE_TAG
       - echo "Gerando Dockerrun.aws.json..."
       - |
         cat > Dockerrun.aws.json << 'JSON'
@@ -38,7 +30,7 @@ phases:
             "Update": "true"
           },
           "Ports": [
-            { "ContainerPort": "3000" }
+            { "ContainerPort": "8080" }
           ]
         }
         JSON
@@ -46,3 +38,4 @@ phases:
 artifacts:
   files:
     - Dockerrun.aws.json
+
