@@ -3,10 +3,9 @@ version: 0.2
 phases:
   pre_build:
     commands:
-      - echo Fazendo login no ECR...
-      - AWS_DEFAULT_REGION=us-east-1
-      - REPOSITORY_URI=801333664660.dkr.ecr.us-east-1.amazonaws.com/bia
-      - aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin 801333664660.dkr.ecr.us-east-1.amazonaws.com
+      - echo Fazendo login no ECR...      
+      - aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin 380278406175.dkr.ecr.us-east-1.amazonaws.com
+      - REPOSITORY_URI=801333664660.dkr.ecr.us-east-1.amazonaws.com/simple-docker-service-0ed19a32f335
       - COMMIT_HASH=$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | cut -c 1-7)
       - IMAGE_TAG=${COMMIT_HASH:=latest}
   build:
@@ -21,22 +20,7 @@ phases:
       - echo Fazendo push da imagem para o ECR...
       - docker push $REPOSITORY_URI:latest
       - docker push $REPOSITORY_URI:$IMAGE_TAG
-
-      # >>> A PARTE CRÍTICA PARA O BEANSTALK <<<
-      - echo Gerando Dockerrun.aws.json para o Elastic Beanstalk...
-      - |
-        cat > Dockerrun.aws.json << 'JSON'
-        {
-          "AWSEBDockerrunVersion": "1",
-          "Image": {
-            "Name": "801333664660.dkr.ecr.us-east-1.amazonaws.com/bia:latest",
-            "Update": "true"
-          },
-          "Ports": [
-            { "ContainerPort": "3000" }
-          ]
-        }
-        JSON
+      - echo Gerando artefato da imagem para o ECS
+      - printf '[{"name":"bia","imageUri":"%s"}]' $REPOSITORY_URI:$IMAGE_TAG > imagedefinitions.json
 artifacts:
-  files:
-    - Dockerrun.aws.json
+  files: imagedefinitions.json
